@@ -1,71 +1,79 @@
-{
-"ocru": [
-	"Depoul Pantelimon",
-	"Republica"
-],
-"galben" : [
-	"Republica",
-	"Costin Georgian",
-	"Titan",
-	"Nicolae Grigorescu",
-	"Dristor 1",
-	"Mihai Bravu",
-	"Timpuri Noi",
-	"Unirii",
-	"Izvor",
-	"Eroilor",
-	"Grozăvești",
-	"Petrache Poenaru",
-	"Crângași",
-	"Basarab",
-	"Gara de Nord",
-	"Victoriei",
-	"Ștefan cel Mare",
-	"Obor",
-	"Iancului",
-	"Muncii",
-	"Dristor 2"
-],
-"albastru" : [
-	"Pipera",
-	"Aurel Vlaicu",
-	"Aviatorilor",
-	"Victoriei",
-	"Romană",
-	"Universitate",
-	"Unirii",
-	"Tineretului",
-	"Eroii Revoluției",
-	"Constantin Brâncoveanu",
-	"Piața Sudului",
-	"Apărătorii Patriei",
-	"Dimitrie Leonida",
-	"Berceni"
-],
-"roșu" : [
-	"Preciziei"
-	"Păcii"
-	"Gorjului"
-	"Lujerului"
-	"Politehnica"
-	"Eroilor"
-	"Izvor"
-	"Unirii"
-	"Timpuri Noi"
-	"Mihai Bravu"
-	"Dristor 1"
-	"Nicolae Grigorescu"
-	"1 Decembrie 1918"
-	"Nicolae Teclu"
-	"Anghel Saligny"
-],
-"verde" : [
-	"Parc Bazilescu",
-	"Jiului",
-	"1 Mai",
-	"Grivița",
-	"Basarab",
-	"Gara de Nord"
+[
+	{
+		"name": "M1", 
+		"stations": [
+			"Depoul Pantelimon",
+			"Republica",
+			"Costin Georgian",
+			"Titan",
+			"Nicolae Grigorescu",
+			"Dristor 1",
+			"Mihai Bravu",
+			"Timpuri Noi",
+			"Unirii 1",
+			"Izvor",
+			"Eroilor",
+			"Grozăvești",
+			"Petrache Poenaru",
+			"Crângași",
+			"Basarab",
+			"Gara de Nord",
+			"Victoriei 1",
+			"Ștefan cel Mare",
+			"Obor",
+			"Iancului",
+			"Muncii",
+			"Dristor 2"
+		]
+	},
+	{
+		"name": "M2",
+		"stations": [
+			"Pipera",
+			"Aurel Vlaicu",
+			"Aviatorilor",
+			"Victoriei 2",
+			"Romană",
+			"Universitate",
+			"Unirii 2",
+			"Tineretului",
+			"Eroii Revoluției",
+			"Constantin Brâncoveanu",
+			"Piața Sudului",
+			"Apărătorii Patriei",
+			"Dimitrie Leonida",
+			"Berceni"
+		]
+	},
+	{
+		"name": "M3", 
+			"stations" : [
+			"Preciziei",
+			"Păcii",
+			"Gorjului",
+			"Lujerului",
+			"Politehnica",
+			"Eroilor",
+			"Izvor",
+			"Unirii 1",
+			"Timpuri Noi",
+			"Mihai Bravu",
+			"Dristor 1",
+			"Nicolae Grigorescu",
+			"1 Decembrie 1918",
+			"Nicolae Teclu",
+			"Anghel Saligny"
+		]
+	},
+	{
+		"name": "M4",
+		"stations": [
+			"Parc Bazilescu",
+			"Jiului",
+			"1 Mai",
+			"Grivița",
+			"Basarab",
+			"Gara de Nord"
+		]
+	}
 ]
-}
-
