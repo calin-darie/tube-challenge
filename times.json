@@ -1,0 +1,46 @@
+﻿{
+	"waitingTimes": [
+		{
+			"line": "Pantelimon",
+			"time": 18
+		},
+		{
+			"line": "M1",
+			"time": 7
+		},
+		{
+			"line": "M2",
+			"time": 4
+		},
+		{
+			"line": "M3",
+			"time": 8
+		},
+		{
+			"line": "M4",
+			"time": 9
+		}
+	],
+	"walkingTimes": [
+		{
+			"station1": "Unirii 1",
+			"station2": "Unirii 2",
+			"time": 4
+		},
+		{
+			"station1": "Dristor 1",
+			"station2": "Dristor 2",
+			"time": 2
+		},
+		{
+			"station1": "Gara de Nord 1",
+			"station2": "Gara de Nord 2",
+			"time": 4
+		},
+		{
+			"station1": "Victoriei 1",
+			"station2": "Victoriei 2",
+			"time": 2
+		}
+	]
+}

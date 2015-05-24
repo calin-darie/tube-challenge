@@ -1,5 +1,12 @@
 ﻿[
 	{
+		"name": "Pantelimon",
+		"stations": [
+			"Depoul Pantelimon",
+			"Republica"
+		]
+	},
+	{
 		"name": "M1", 
 		"stations": [
 			"Republica",
@@ -23,13 +30,6 @@
 			"Iancului",
 			"Muncii",
 			"Dristor 2"
-		]
-	},
-	{
-		"name": "Pantelimon",
-		"stations": [
-			"Depoul Pantelimon",
-			"Republica"
 		]
 	},
 	{
