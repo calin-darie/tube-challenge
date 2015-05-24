@@ -1,8 +1,7 @@
-[
+﻿[
 	{
 		"name": "M1", 
 		"stations": [
-			"Depoul Pantelimon",
 			"Republica",
 			"Costin Georgian",
 			"Titan",
@@ -17,13 +16,20 @@
 			"Petrache Poenaru",
 			"Crângași",
 			"Basarab",
-			"Gara de Nord",
+			"Gara de Nord 1",
 			"Victoriei 1",
 			"Ștefan cel Mare",
 			"Obor",
 			"Iancului",
 			"Muncii",
 			"Dristor 2"
+		]
+	},
+	{
+		"name": "Pantelimon",
+		"stations": [
+			"Depoul Pantelimon",
+			"Republica"
 		]
 	},
 	{
@@ -73,7 +79,7 @@
 			"1 Mai",
 			"Grivița",
 			"Basarab",
-			"Gara de Nord"
+			"Gara de Nord 2"
 		]
 	}
 ]
