@@ -99,3 +99,13 @@ foreach ($walkingTime in $times.walkingTimes) {
         }
     }
 }
+
+foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
+    foreach ($node1 in $stationEntry.Value) {
+        foreach ($node2 in $stationEntry.Value) {
+            if ($node1.line -eq $node2.line) {continue}
+            if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 (getAverageWaitingTime $node2.line) }
+            if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 (getAverageWaitingTime $node1.line) }
+        }
+    }
+}
