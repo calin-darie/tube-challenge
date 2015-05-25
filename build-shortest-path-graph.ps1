@@ -1,4 +1,4 @@
-function readFromJsonFile ($file) {
+﻿function readFromJsonFile ($file) {
     $json = (Get-Content $file) -join "`n"
     $result = ConvertFrom-Json $json
     return $result
@@ -37,11 +37,14 @@ function getNode () {
     }
 }
 
-function addEdge ($node1, $node2, $weight) {
-    $node1Train = if ($node1.hasTrainArrived) { "train arrived" } else {""}
-    $node2Train = if ($node2.hasTrainArrived) { "train arrived" } else {""}
-    Write-Host [ $node1.line ] $node1.station $node1Train -> $node2.station $node2Train :  $weight minutes
-    $shortestTimesGraph.edges += @{source= $node1; destination= $node2 }
+function nodeToString($node) { 
+    $nodeTrain = if ($node.hasTrainArrived) { " train arrived" } else {""}
+    return "[$($node.line)] $($node.station) to $($node.direction)$nodeTrain"
+}
+
+function addEdge ($sourceNode, $targetNode, $time) {
+    #Write-Host  (nodeToString $sourceNode) -> (nodeToString $targetNode): $time minutes
+    $shortestTimesGraph.edges += @{source= $sourceNode; target= $targetNode; time= $time }
 }
 
 foreach ($line in $lines) {
@@ -109,3 +112,34 @@ foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
         }
     }
 }
+
+$nuget = Join-Path $PSScriptRoot "nuget.exe"
+if (-not (Test-Path $nuget)) { 
+    Write-Host downloading nuget...
+    Invoke-WebRequest "https://nuget.org/nuget.exe" -OutFile $nuget 
+}
+.\nuget install quickgraph
+$quickGraph = (Get-ChildItem QuickGraph.dll -Recurse | Select -First 1).FullName
+Add-Type -Path $quickGraph
+
+$graph = New-Object "QuickGraph.AdjacencyGraph[string, QuickGraph.Edge[string]]"
+$timeMap = New-Object "system.collections.generic.dictionary[QuickGraph.Edge[string], double]"
+foreach ($edge in $shortestTimesGraph.edges) {
+    $quickGraphEdge = New-Object "QuickGraph.Edge[string]" `
+        -ArgumentList @((nodeToString $edge.source), (nodeToString $edge.target))
+    [void]$graph.AddVerticesAndEdge($quickGraphEdge)
+    $timeMap.Add($quickGraphEdge, $edge.time)
+}
+
+function getShortestPath($source, $destination) {
+    $quickGraphWeightIndexer = [QuickGraph.Algorithms.AlgorithmExtensions]::GetIndexer($timeMap)
+    $tryGetPathFunc = [QuickGraph.Algorithms.AlgorithmExtensions]::ShortestPathsDijkstra( `
+        [QuickGraph.IVertexAndEdgeListGraph[string, QuickGraph.Edge[string]]]$graph, `
+        [Func[QuickGraph.Edge[string], double]]$quickGraphWeightIndexer, `
+        [string]$source)
+    $path = $null
+    $success = $tryGetPathFunc.Invoke($destination, [ref]$path)
+    return $path
+}
+
+getShortestPath "[M1] Mihai Bravu to Dristor 1" "[M1] Obor to Ștefan cel Mare train arrived"
