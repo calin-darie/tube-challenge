@@ -26,6 +26,10 @@ function getRideTime ($station1, $station2) {
     return 2;
 }
 
+function getSamePlatformTransferTime ($station) {
+    return 0.5;
+}
+
 function getNode () {
     Param ($line, $stationIndex, $direction, $hasTrainArrived)
     $station = $line.stations[$stationIndex]
@@ -42,9 +46,13 @@ function nodeToString($node) {
     return "[$($node.line)] $($node.station) to $($node.direction)$nodeTrain"
 }
 
+function edgeToString ($edge) {
+    return "$(nodeToString $edge.source) -> $(nodeToString $edge.target): $($edge.time) minutes"
+}
+
 function addEdge ($sourceNode, $targetNode, $time) {
-    #Write-Host  (nodeToString $sourceNode) -> (nodeToString $targetNode): $time minutes
-    $shortestTimesGraph.edges += @{source= $sourceNode; target= $targetNode; time= $time }
+    $newEdge = @{source= $sourceNode; target= $targetNode; time= $time }
+    $shortestTimesGraph.edges += $newEdge
 }
 
 foreach ($line in $lines) {
@@ -106,9 +114,18 @@ foreach ($walkingTime in $times.walkingTimes) {
 foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
     foreach ($node1 in $stationEntry.Value) {
         foreach ($node2 in $stationEntry.Value) {
-            if ($node1.line -eq $node2.line) {continue}
-            if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 (getAverageWaitingTime $node2.line) }
-            if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 (getAverageWaitingTime $node1.line) }
+            if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 (getSamePlatformTransferTime $stationEntry.Key) }
+            if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 (getSamePlatformTransferTime $stationEntry.Key) }
+        }
+    }
+}
+
+foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
+    foreach ($node in $stationEntry.Value) {
+        if (-not $node.hasTrainArrived) {
+            $target = $node.Clone()
+            $target.hasTrainArrived = $true
+            addEdge $node $target (getAverageWaitingTime $node.line)
         }
     }
 }
@@ -142,4 +159,20 @@ function getShortestPath($source, $destination) {
     return $path
 }
 
-getShortestPath "[M1] Mihai Bravu to Dristor 1" "[M1] Obor to Ștefan cel Mare train arrived"
+#debug queries:
+#$graph.Edges | Where-Object {$_.source.Contains('Unirii 2 to')}
+
+$path = getShortestPath "[M2] Unirii 2 to Universitate" "[M2] Unirii 2 to Universitate train arrived"
+if ($path.Count -ne 1) { Write-Error "[Failed] Waiting for train is modeled by edge." }
+
+$path = getShortestPath "[M1] Obor to Ștefan cel Mare" "[M1] Obor to Iancului"
+if ($path.Count -ne 1) { Write-Error "[Failed] When I start by waiting for the wrong direction, I can change my mind." }
+
+$path = getShortestPath "[M1] Dristor 1 to Mihai Bravu" "[M1] Dristor 2 to Muncii"
+if ($path.Count -ne 1) { Write-Error "[Failed] When I want to reach a station I can walk to, I will walk." }
+
+
+$path = getShortestPath "[M1] Timpuri Noi to Mihai Bravu" "[M1] Victoriei 1 to Gara de Nord 1"
+$time = $path | foreach {$timeMap[$_]} | Measure-Object -Sum
+$path
+Write-Host $time.Sum minutes
