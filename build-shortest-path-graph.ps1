@@ -178,15 +178,19 @@ buildSamePlatformTransferEdges
 # importing and wrapping quickGraph
 # ===================================
 
+function getQuickGraphDllPath () {
+    return (Get-ChildItem -Path $PSScriptRoot -File -Recurse "QuickGraph.dll" | Select -First 1)
+}
 
-$quickGraphDll = Get-ChildItem QuickGraph.dll -Recurse | Select -First 1
+$quickGraphDll = getQuickGraphDllPath
 if ($quickGraphDll -eq $null) {
     $nuget = Join-Path $PSScriptRoot "nuget.exe"
     if (-not (Test-Path $nuget)) { 
         Write-Host downloading nuget...
         Invoke-WebRequest "https://nuget.org/nuget.exe" -OutFile $nuget 
     }
-    & $nuget install quickgraph
+    & $nuget install QuickGraph -OutputDirectory $PSScriptRoot
+    $quickGraphDll = getQuickGraphDllPath
 }
 Add-Type -Path $quickGraphDll.FullName
 
