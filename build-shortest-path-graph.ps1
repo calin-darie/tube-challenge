@@ -1,12 +1,27 @@
-﻿function readFromJsonFile ($file) {
+﻿param(
+    [string] $linesJsonPath = (join-path $PSScriptRoot "stations.json"),
+    [string] $timesJsonPath = (join-path $PSScriptRoot "times.json")
+)
+
+# ===================================
+# loading data
+# ===================================
+
+function readFromJsonFile ($file) {
     $json = (Get-Content $file) -join "`n"
     $result = ConvertFrom-Json $json
     return $result
 }
 
-$lines = readFromJsonFile (join-path $PSScriptRoot "stations.json")
-$times = readFromJsonFile (join-path $PSScriptRoot "times.json")
+$lines = readFromJsonFile $linesJsonPath
+$times = readFromJsonFile $timesJsonPath
 $shortestTimesGraph = @{ nodes = @{}; edges = @() }
+
+
+
+# ===================================
+# building the graph
+# ===================================
 
 function  addNodes ($nodes) {
     if ($nodes -eq $null -or $nodes.Length -eq 0) { return }
@@ -55,89 +70,125 @@ function addEdge ($sourceNode, $targetNode, $time) {
     $shortestTimesGraph.edges += $newEdge
 }
 
-foreach ($line in $lines) {
-    for ($i = 0; $i -lt $line.stations.Length; $i ++) {
-        if ($i - 1 -ge 0) {
-            addNodes @(
-                (getNode $line $i -direction -1 -hasTrainArrived $false),
-                (getNode $line $i -direction -1 -hasTrainArrived $true)
-            )
-        }
-        if ($i + 1 -lt $line.stations.Length) {
-            addNodes @(
-                (getNode $line $i -direction +1 -hasTrainArrived $false),
-                (getNode $line $i -direction +1 -hasTrainArrived $true)
-            )
+function buildNodes () {
+    foreach ($line in $lines) {
+        for ($i = 0; $i -lt $line.stations.Length; $i ++) {
+            if ($i - 1 -ge 0) {
+                addNodes @(
+                    (getNode $line $i -direction -1 -hasTrainArrived $false),
+                    (getNode $line $i -direction -1 -hasTrainArrived $true)
+                )
+            }
+            if ($i + 1 -lt $line.stations.Length) {
+                addNodes @(
+                    (getNode $line $i -direction +1 -hasTrainArrived $false),
+                    (getNode $line $i -direction +1 -hasTrainArrived $true)
+                )
+            }
         }
     }
 }
 
-foreach ($line in $lines) {
-    for ($i = 0; $i -lt $line.stations.Length; $i ++) {
-        addEdge `
-            (getNode $line $i -direction +1 -hasTrainArrived $false) `
-            (getNode $line $i -direction +1 -hasTrainArrived $true) `
-            (getAverageWaitingTime $line.name)
+function buildWaitingEdges() {
+    foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
+        foreach ($node in $stationEntry.Value) {
+            if (-not $node.hasTrainArrived) {
+                $target = $node.Clone()
+                $target.hasTrainArrived = $true
+                addEdge $node $target (getAverageWaitingTime $node.line)
+            }
+        }
+    }
+}
+
+function buildRideEdges() {
+    foreach ($line in $lines) {
+        for ($i = 0; $i -lt $line.stations.Length; $i ++) {
+            addEdge `
+                (getNode $line $i -direction +1 -hasTrainArrived $false) `
+                (getNode $line $i -direction +1 -hasTrainArrived $true) `
+                (getAverageWaitingTime $line.name)
         
-        if ($i -eq $line.stations.Length - 1) { break }
+            if ($i -eq $line.stations.Length - 1) { break }
 
-        $isNextStationEndOfLine = $i + 1 -eq $line.stations.Length - 1
-        $directionFromNextStation = if ($isNextStationEndOfLine) {-1} else {+1}
-
-        addEdge `
-            (getNode $line $i   -direction +1 -hasTrainArrived $true) `
-            (getNode $line ($i+1) -direction $directionFromNextStation -hasTrainArrived $true) `
-            (getRideTime $line.stations[$i] $line.stations[$i+1])
+            $isNextStationEndOfLine = $i + 1 -eq $line.stations.Length - 1
+            if ($isNextStationEndOfLine) {
+                addEdge `
+                    (getNode $line $i   -direction +1 -hasTrainArrived $true) `
+                    (getNode $line ($i+1) -direction -1 -hasTrainArrived $false) `
+                    (getRideTime $line.stations[$i] $line.stations[$i+1])
+            } else {
+                addEdge `
+                    (getNode $line $i   -direction +1 -hasTrainArrived $true) `
+                    (getNode $line ($i+1) -direction +1 -hasTrainArrived $true) `
+                    (getRideTime $line.stations[$i] $line.stations[$i+1])
+            }
         
 
-        $isThisStationEndOfLine = $i -eq 0
-        $directionFromHere = if ($isThisStationEndOfLine) {+1} else {-1}
-        
-        addEdge `
-            (getNode $line ($i+1) -direction -1 -hasTrainArrived $true) `
-            (getNode $line $i -direction $directionFromHere -hasTrainArrived $true) `
-            (getRideTime $line.stations[$i] $line.stations[$i+1])
-    }
-}
-
-foreach ($walkingTime in $times.walkingTimes) {
-    $nodes1 = $shortestTimesGraph.nodes[$walkingTime.station1]
-    $nodes2 = $shortestTimesGraph.nodes[$walkingTime.station2]
-    foreach ($node1 in $nodes1) {
-        foreach ($node2 in $nodes2) {
-            if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 $walkingTime.time }
-            if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 $walkingTime.time }
+            $isThisStationEndOfLine = $i -eq 0
+            if ($isThisStationEndOfLine) {
+                addEdge `
+                    (getNode $line ($i+1) -direction -1 -hasTrainArrived $true) `
+                    (getNode $line $i -direction +1 -hasTrainArrived $false) `
+                    (getRideTime $line.stations[$i] $line.stations[$i+1])
+            } else {
+                addEdge `
+                    (getNode $line ($i+1) -direction -1 -hasTrainArrived $true) `
+                    (getNode $line $i -direction -1 -hasTrainArrived $true) `
+                    (getRideTime $line.stations[$i] $line.stations[$i+1])
+            }
         }
     }
 }
 
-foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
-    foreach ($node1 in $stationEntry.Value) {
-        foreach ($node2 in $stationEntry.Value) {
-            if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 (getSamePlatformTransferTime $stationEntry.Key) }
-            if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 (getSamePlatformTransferTime $stationEntry.Key) }
+function buildWalkingEdges () {
+    foreach ($walkingTime in $times.walkingTimes) {
+        $nodes1 = $shortestTimesGraph.nodes[$walkingTime.station1]
+        $nodes2 = $shortestTimesGraph.nodes[$walkingTime.station2]
+        foreach ($node1 in $nodes1) {
+            foreach ($node2 in $nodes2) {
+                if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 $walkingTime.time }
+                if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 $walkingTime.time }
+            }
         }
     }
 }
 
-foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
-    foreach ($node in $stationEntry.Value) {
-        if (-not $node.hasTrainArrived) {
-            $target = $node.Clone()
-            $target.hasTrainArrived = $true
-            addEdge $node $target (getAverageWaitingTime $node.line)
+function buildSamePlatformTransferEdges () {
+    foreach ($stationEntry in $shortestTimesGraph.nodes.GetEnumerator()) {
+        foreach ($node1 in $stationEntry.Value) {
+            foreach ($node2 in $stationEntry.Value) {
+                if (-not $node2.hasTrainArrived) { addEdge $node1 $node2 (getSamePlatformTransferTime $stationEntry.Key) }
+                if (-not $node1.hasTrainArrived) { addEdge $node2 $node1 (getSamePlatformTransferTime $stationEntry.Key) }
+            }
         }
     }
 }
 
-$nuget = Join-Path $PSScriptRoot "nuget.exe"
-if (-not (Test-Path $nuget)) { 
-    Write-Host downloading nuget...
-    Invoke-WebRequest "https://nuget.org/nuget.exe" -OutFile $nuget 
+
+buildNodes
+buildWaitingEdges
+buildRideEdges
+buildWalkingEdges
+buildSamePlatformTransferEdges
+
+
+
+# ===================================
+# importing and wrapping quickGraph
+# ===================================
+
+
+$quickGraphDll = Get-ChildItem QuickGraph.dll -Recurse | Select -First 1
+if ($quickGraphDll -eq $null) {
+    $nuget = Join-Path $PSScriptRoot "nuget.exe"
+    if (-not (Test-Path $nuget)) { 
+        Write-Host downloading nuget...
+        Invoke-WebRequest "https://nuget.org/nuget.exe" -OutFile $nuget 
+    }
+    .\nuget install quickgraph
 }
-.\nuget install quickgraph
-$quickGraph = (Get-ChildItem QuickGraph.dll -Recurse | Select -First 1).FullName
-Add-Type -Path $quickGraph
+Add-Type -Path $quickGraphDll.FullName
 
 $graph = New-Object "QuickGraph.AdjacencyGraph[string, QuickGraph.Edge[string]]"
 $timeMap = New-Object "system.collections.generic.dictionary[QuickGraph.Edge[string], double]"
@@ -159,20 +210,101 @@ function getShortestPath($source, $destination) {
     return $path
 }
 
-#debug queries:
-#$graph.Edges | Where-Object {$_.source.Contains('Unirii 2 to')}
 
+function getShortestPathThrough($stations) {
+    $path = @{ edges = @(); time = 0}
+    $isFirstStation = $true
+    $targetNode = $null
+    foreach ($station in $stations) {
+        $sourceNode = $targetNode
+
+        $targetNode = $shortestTimesGraph.nodes[$station] | Where-Object {$_.hasTrainArrived -eq (-not $isFirstStation)} | Select -First 1
+        if ($sourceNode -ne $null) { 
+            $path.edges += getShortestPath (nodeToString $sourceNode) (nodeToString $targetNode) 
+        }
+        
+        $isFirstStation = $false
+    }
+    $minutes = ($path.edges | foreach {$timeMap[$_]} | Measure-Object -Sum).Sum
+    $path.time = [System.TimeSpan]::FromMinutes($minutes)
+    return $path
+}
+
+
+# ===================================
+# testing
+# ===================================
+
+Write-Host Testing...
 $path = getShortestPath "[M2] Unirii 2 to Universitate" "[M2] Unirii 2 to Universitate train arrived"
-if ($path.Count -ne 1) { Write-Error "[Failed] Waiting for train is modeled by edge." }
+Write-Host Waiting for train is modeled by edge.
+if ($path.Count -ne 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 $path = getShortestPath "[M1] Obor to Ștefan cel Mare" "[M1] Obor to Iancului"
-if ($path.Count -ne 1) { Write-Error "[Failed] When I start by waiting for the wrong direction, I can change my mind." }
+Write-Host When I start by waiting for the wrong direction, I can change my mind.
+if ($path.Count -ne 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 $path = getShortestPath "[M1] Dristor 1 to Mihai Bravu" "[M1] Dristor 2 to Muncii"
-if ($path.Count -ne 1) { Write-Error "[Failed] When I want to reach a station I can walk to, I will walk." }
+Write-Host When I want to reach a station I can walk to, I will walk.
+if ($path.Count -ne 1) { Write-Error "Failed" } else { Write-Host "Passed"}
+
+$path = getShortestPath "[M3] Nicolae Teclu to Anghel Saligny train arrived" "[M3] Anghel Saligny to Nicolae Teclu train arrived"
+Write-Host When switching directions at the end of the line, I have to wait.
+if ($path.Count -eq 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 
-$path = getShortestPath "[M1] Timpuri Noi to Mihai Bravu" "[M1] Victoriei 1 to Gara de Nord 1"
-$time = $path | foreach {$timeMap[$_]} | Measure-Object -Sum
-$path
-Write-Host $time.Sum minutes
+
+# ===================================
+# trying out checkpoint permutations
+# ===================================
+
+function permutations ($array) {
+    if ($array.Count -le 1) {return @($array)}
+
+    $result = New-Object "System.Collections.Generic.List[object[]]"
+    for ($i = 0; $i -lt $array.Count; $i++) {
+        $reducedProblemArray = 0..($array.Count-1) | Where-Object {$_ -ne $i} | foreach { $array[$_] }
+        permutations $reducedProblemArray | foreach { $result.Add(@($array[$i]) + $_) }
+    }
+    return $result
+}
+
+Write-Host Trying out checkpoint permutations...
+$checkpointSequences = permutations ("Preciziei", "Parc Bazilescu", "Gara de Nord 2", "Obor", "Dristor 2") | `
+    foreach { @{stations = $_ }}
+foreach ($checkpointSequence in $checkpointSequences) {
+    $completeCheckpointSequence = @("Depoul Pantelimon", "Anghel Saligny") + $checkpointSequence.stations + @("Pipera", "Berceni")
+    $path = getShortestPathThrough $completeCheckpointSequence
+    $missingStations = @()
+    foreach ($station in $shortestTimesGraph.nodes.Keys) {
+        $found = $false
+        foreach ($edge in $path.edges) {
+            if ($edge.source.contains("$station to") -or $edge.target.contains("$station to")) {
+                $found = $true;
+                break
+            }
+        }
+        if (-not $found) { $missingStations += $station }
+    }
+    if ($missingStations.Count -gt 0) { 
+        $path.time = $path.time.Add([System.TimeSpan]::FromMinutes(6 + 2 * $missingStations.Count))
+    }
+    $checkpointSequence.completeSequence = $completeCheckpointSequence
+    $checkpointSequence.missingStations = $missingStations
+    $checkpointSequence.time = $path.time
+}
+
+$checkpointSequences | Sort-Object {$_.time} -descending | Select -Last 50 | foreach {
+    Write-Host =================================
+    Write-Host $_.time
+    Write-Host ($_.completeSequence -join " ")
+    if ($_.missingStations.Count -gt 0) { 
+        Write-Host ! missing stations: 
+        $_.missingStations | Write-Host
+    }
+}
+
+
+#debug queries:
+#$graph.Edges | Where-Object {$_.source.Contains('Unirii 2 to')}
+#getShortestPathThrough @("Depoul Pantelimon", "Anghel Saligny", "Preciziei", 'Parc Bazilescu', "Gara de Nord 2", 'Dristor 2', 'Pipera', 'Berceni')
