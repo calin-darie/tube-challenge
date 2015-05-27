@@ -186,7 +186,7 @@ if ($quickGraphDll -eq $null) {
         Write-Host downloading nuget...
         Invoke-WebRequest "https://nuget.org/nuget.exe" -OutFile $nuget 
     }
-    .\nuget install quickgraph
+    & $nuget install quickgraph
 }
 Add-Type -Path $quickGraphDll.FullName
 
