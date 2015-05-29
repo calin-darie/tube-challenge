@@ -217,18 +217,42 @@ function getShortestPath($source, $destination) {
 
 function getShortestPathThrough($stations) {
     $path = @{ edges = @(); time = 0}
-    $isFirstStation = $true
-    $targetNode = $null
-    foreach ($station in $stations) {
-        $sourceNode = $targetNode
 
-        $targetNode = $shortestTimesGraph.nodes[$station] | Where-Object {$_.hasTrainArrived -eq (-not $isFirstStation)} | Select -First 1
-        if ($sourceNode -ne $null) { 
-            $path.edges += getShortestPath (nodeToString $sourceNode) (nodeToString $targetNode) 
-        }
+    if ($stations.Count -lt 2) { return $path }
+
+    $isFirstStation = $true
         
-        $isFirstStation = $false
+    $nodeSegmentMustStartFrom = $null
+
+    for ($i = 0; $i -lt $stations.length - 1; $i++) {
+        $sourceStation = $stations[$i]
+        $targetStation = $stations[$i + 1]
+
+        $sourceNode = $shortestTimesGraph.nodes[$sourceStation][0]
+	    $targetNode = $shortestTimesGraph.nodes[$targetStation][0]
+        
+        $currentSegment = getShortestPath (nodeToString $sourceNode) (nodeToString $targetNode)
+		$currentSegment = $currentSegment | `
+			Where-Object {
+                -not $_.target.Contains("$sourceStation to") -and 
+			    -not $_.source.Contains("$targetStation to") #todo extract function
+            }        
+        
+        if ($nodeSegmentMustStartFrom -eq  $null) { 
+            $nodeSegmentMustStartFrom = ($graph.edges | `
+                Where-Object { $_.target -eq $currentSegment[0].source } | `
+                Select -First 1).source
+        }
+
+        if ($nodeSegmentMustStartFrom -ne $currentSegment[0].source) {
+            $currentSegment = @(getShortestPath $nodeSegmentMustStartFrom $currentSegment[0].source) + $currentSegment
+        }
+
+        $nodeSegmentMustStartFrom = ($currentSegment | Select -Last 1).target
+
+		$path.edges += $currentSegment
     }
+
     $minutes = ($path.edges | foreach {$timeMap[$_]} | Measure-Object -Sum).Sum
     $path.time = [System.TimeSpan]::FromMinutes($minutes)
     return $path
@@ -239,23 +263,31 @@ function getShortestPathThrough($stations) {
 # testing
 # ===================================
 
-Write-Host Testing...
+Write-Host "Testing model and paths between two nodes..."
 $path = getShortestPath "[M2] Unirii 2 to Universitate" "[M2] Unirii 2 to Universitate train arrived"
-Write-Host Waiting for train is modeled by edge.
+Write-Host "Waiting for train is modeled by edge."
 if ($path.Count -ne 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 $path = getShortestPath "[M1] Obor to Ștefan cel Mare" "[M1] Obor to Iancului"
-Write-Host When I start by waiting for the wrong direction, I can change my mind.
+Write-Host "When I start by waiting for the wrong direction, I can change my mind."
 if ($path.Count -ne 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 $path = getShortestPath "[M1] Dristor 1 to Mihai Bravu" "[M1] Dristor 2 to Muncii"
-Write-Host When I want to reach a station I can walk to, I will walk.
+Write-Host "When I want to reach a station I can walk to, I will walk."
 if ($path.Count -ne 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 $path = getShortestPath "[M3] Nicolae Teclu to Anghel Saligny train arrived" "[M3] Anghel Saligny to Nicolae Teclu train arrived"
-Write-Host When switching directions at the end of the line, I have to wait.
+Write-Host "When switching directions at the end of the line, I have to wait."
 if ($path.Count -eq 1) { Write-Error "Failed" } else { Write-Host "Passed"}
 
+Write-Host  "Testing checkpoint paths..."
+$path = getShortestPathThrough @("Nicolae Teclu", "Anghel Saligny", "Nicolae Teclu")
+Write-Host "When switching directions at the end of the line, I have to wait."
+if ($path.edges.Count -ne @("wait", "ride", "wait", "ride back").Count) { Write-Error "Failed" } else { Write-Host "Passed"}
+
+$path = getShortestPathThrough @("Gara de Nord 1", "Victoriei 1")
+Write-Host "When a direct ride exists between two platforms, ignore the possibility to start by waiting for the wrong train."
+if ($path.edges.Count -ne @("wait", "ride").Count) { Write-Error "Failed" } else { Write-Host "Passed"}
 
 
 # ===================================
@@ -311,4 +343,4 @@ $checkpointSequences | Sort-Object {$_.time} -descending | Select -Last 50 | for
 
 #debug queries:
 #$graph.Edges | Where-Object {$_.source.Contains('Unirii 2 to')}
-#getShortestPathThrough @("Depoul Pantelimon", "Anghel Saligny", "Preciziei", 'Parc Bazilescu', "Gara de Nord 2", 'Dristor 2', 'Pipera', 'Berceni')
+#getShortestPathThrough @("Depoul Pantelimon", "Anghel Saligny", "Preciziei", 'Parc Bazilescu', "Gara de Nord 2", "Obor", 'Dristor 2', 'Pipera', 'Berceni')
