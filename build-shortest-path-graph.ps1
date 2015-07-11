@@ -216,7 +216,8 @@ function getShortestPath($source, $destination) {
 
 
 function getShortestPathThrough($stations) {
-    $path = @{ edges = @(); time = 0}
+    $path = @{ edges = @(); edgeDurations=@(); time = 0}
+    $totalMinutes = 0
 
     if ($stations.Count -lt 2) { return $path }
 
@@ -251,10 +252,12 @@ function getShortestPathThrough($stations) {
         $nodeSegmentMustStartFrom = ($currentSegment | Select -Last 1).target
 
 		$path.edges += $currentSegment
+        $minutes = ($currentSegment | foreach {$timeMap[$_]} | Measure-Object -Sum).Sum
+        $totalMinutes += $minutes
+        $path.edgeDurations += [System.TimeSpan]::FromMinutes($minutes)
     }
 
-    $minutes = ($path.edges | foreach {$timeMap[$_]} | Measure-Object -Sum).Sum
-    $path.time = [System.TimeSpan]::FromMinutes($minutes)
+    $path.time = [System.TimeSpan]::FromMinutes($totalMinutes)
     return $path
 }
 
@@ -328,9 +331,25 @@ foreach ($checkpointSequence in $checkpointSequences) {
     $checkpointSequence.completeSequence = $completeCheckpointSequence
     $checkpointSequence.missingStations = $missingStations
     $checkpointSequence.time = $path.time
+    $checkpointSequence.checkpointTimes = $path.edgeDurations
 }
 
-$checkpointSequences | Sort-Object {$_.time} -descending | Select -Last 50 | foreach {
+function printTimetable($path, $initialTime="00:00")
+{
+    $time = Get-Date $initialTime
+    $checkpointTimes = @([System.TimeSpan]::FromMinutes(0)) + $path.checkpointTimes
+    $idx = 0
+    $checkpointTimes | foreach {
+        $time += $_
+        $checkpoint = $path.completeSequence[$idx]
+        $checkpointTime = $time.ToShortTimeString()
+        Write-Host "$checkpointTime $checkpoint"
+        $idx += 1
+    }
+}
+
+$bestPaths = $checkpointSequences | Sort-Object {$_.time} -descending | Select -Last 50
+$bestPaths | foreach {
     Write-Host =================================
     Write-Host $_.time
     Write-Host ($_.completeSequence -join " ")
@@ -340,6 +359,10 @@ $checkpointSequences | Sort-Object {$_.time} -descending | Select -Last 50 | for
     }
 }
 
+$bestPath = $bestPaths | Select -Last 1
+$bestTime = $bestPath.time
+Write-Host "`n`nBest path (total time $bestTime):"
+printTimetable $bestPath "06:43"
 
 #debug queries:
 #$graph.Edges | Where-Object {$_.source.Contains('Unirii 2 to')}
